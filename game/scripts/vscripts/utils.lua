@@ -19,3 +19,15 @@ end
 function printf(s,...)
 	print(s:format(...))
 end
+
+function ClearInventory(npc)
+	if not npc then
+		return
+	end
+	for i=0,9 do
+		local item = npc:GetItemInSlot(i)
+		if item then
+			npc:RemoveItem(item)
+		end
+	end
+end
