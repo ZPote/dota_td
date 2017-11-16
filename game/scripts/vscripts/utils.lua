@@ -31,3 +31,7 @@ function ClearInventory(npc)
 		end
 	end
 end
+
+function intDiv(float1, int2)
+	return math.floor(float1 / int2)
+end

@@ -1,6 +1,7 @@
 -- lordsk_td
 
 require("utils")
+require("grid")
 
 DEBUG_QUICK_START = true
 
@@ -36,9 +37,12 @@ function ModTD:InitGameMode()
 		--gameMode:ClientLoadGridNav() does not work
 	end
 
-	GameRules:GetGameModeEntity():SetThink("OnThink", self, "GlobalThink", 0.5)
+	GameRules:GetGameModeEntity():SetThink("OnThink", self, "GlobalThink", 1.0)
 	ListenToGameEvent('player_connect_full', Dynamic_Wrap(ModTD, 'OnPlayerConnectFull')
 		, self)
+
+
+	LinkLuaModifier("builder_modifier", "builder_modifier", LUA_MODIFIER_MOTION_NONE)
 
 	print("[ModTD] mod loaded")
 end
@@ -71,6 +75,8 @@ end
 function ModTD:OnGameStart()
 	print("OnGameStart")
 
+	Grid:Init()
+
 	-- find players
 	for i=0,15 do
 		local p = PlayerInstanceFromIndex(i)
@@ -89,6 +95,7 @@ function ModTD:OnGameStart()
 		if u:GetUnitName() == "td_builder" then
 			self.builder_units[self.builder_count] = u
 			self.builder_count = self.builder_count + 1
+			u:AddNewModifier(u, nil, "modifier_builder", {})
 		end
 	end
 
@@ -110,35 +117,14 @@ function ModTD:OnGameStart()
 end
 
 function ModTD:OnGameUpdate()
-	local p1 = self.players[0]
-	local hero = p1:GetAssignedHero()
 	--local firstAbility = hero:GetAbilityByIndex(0)
 	--local curPos = firstAbility:GetCursorPosition()
-	local curPos = GetGroundPosition(hero:GetCenter(), hero)
 
-	for y=0,63 do
-		for x=0,63 do
-			local alignedX = math.floor(curPos.x / 64) * 64
-			local alignedY = math.floor(curPos.y / 64) * 64
-
-			local pos = Vector(
-				(-64*32) + alignedX + x * 64,
-			 	(-64*32) + alignedY + y * 64,
-			  	curPos.z)
-
-			local blocked = GridNav:IsBlocked(pos) or not GridNav:IsTraversable(pos)
-			local color = {r = 0, g = 255, b = 0, a = 32}
-			if blocked then
-				color = {r = 255, g = 0, b = 0, a = 32}
-			end
-
-			DebugDrawBox(
-				pos,
-				Vector(0, 0, 0),
-				Vector(64, 64, 1),
-				color.r, color.g, color.b, color.a,
-				1.0)
-		end
+	local p1 = self.players[0]
+	local hero = p1:GetAssignedHero()
+	if hero then
+		local curPos = GetGroundPosition(hero:GetCenter(), hero)
+		Grid:DebugDrawAround(curPos, 20)
 	end
 end
 
