@@ -1,11 +1,34 @@
 ability_build_tower1_lua = class ({})
---
 
 require("utils")
+require("grid")
 
-function Ability_BuildTower1(event)
-	print("Ability_BuildTower1():")
-	deep_print(event)
+DEBUG_TOWER_SIZE = 128
+
+function ability_build_tower1_lua:CastFilterResultLocation(pos)
+	printf("ability_build_tower1_lua:CastFilterResultLocation(pos=(%.2f, %.2f))",
+		pos.x, pos.y)
+
+	local bmin = {
+		x = pos.x - DEBUG_TOWER_SIZE/2,
+		y = pos.y - DEBUG_TOWER_SIZE/2
+	}
+	local bmax = {
+		x = pos.x + DEBUG_TOWER_SIZE/2,
+		y = pos.y + DEBUG_TOWER_SIZE/2
+	}
+
+	if not Grid:CanBuild(bmin, bmax) then
+		Grid:DebugDrawAround(pos, 5, 5)
+		return UF_FAIL_CUSTOM
+	end
+
+	return UF_SUCCESS
+end
+
+function ability_build_tower1_lua:GetCustomCastErrorLocation(pos)
+	print("ability_build_tower1_lua:GetCustomCastErrorLocation()")
+	return "#td_hud_error_location_blocked"
 end
 
 function ability_build_tower1_lua:OnSpellStart()

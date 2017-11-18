@@ -4,6 +4,7 @@ require("utils")
 require("grid")
 
 DEBUG_QUICK_START = true
+DEBUG_DRAW_GRID = false
 
 
 if ModTD == nil then
@@ -41,8 +42,8 @@ function ModTD:InitGameMode()
 	ListenToGameEvent('player_connect_full', Dynamic_Wrap(ModTD, 'OnPlayerConnectFull')
 		, self)
 
-
-	LinkLuaModifier("builder_modifier", "builder_modifier", LUA_MODIFIER_MOTION_NONE)
+	-- LINK MODIFIERS
+	LinkLuaModifier("modifier_builder", "modifier_builder", LUA_MODIFIER_MOTION_NONE)
 
 	print("[ModTD] mod loaded")
 end
@@ -120,11 +121,13 @@ function ModTD:OnGameUpdate()
 	--local firstAbility = hero:GetAbilityByIndex(0)
 	--local curPos = firstAbility:GetCursorPosition()
 
-	local p1 = self.players[0]
-	local hero = p1:GetAssignedHero()
-	if hero then
-		local curPos = GetGroundPosition(hero:GetCenter(), hero)
-		Grid:DebugDrawAround(curPos, 20)
+	if DEBUG_DRAW_GRID then
+		local p1 = self.players[0]
+		local hero = p1:GetAssignedHero()
+		if hero then
+			local curPos = GetGroundPosition(hero:GetCenter(), hero)
+			Grid:DebugDrawAround(curPos, 20, duration)
+		end
 	end
 end
 

@@ -23,22 +23,24 @@ function Grid:Init()
 	self.gridHeight = intDiv(worldMaxY - worldMinY, self.cellSize)
 	self.gridData = {} -- int[gridWidth * gridHeight]
 
-	local SAMPLES_PER_CELL = 4
+	local SAMPLES_PER_CELL2 = 2
 
-	for gy=0,self.gridHeight do
-		for gx=0,self.gridWidth do
+	for gy=0,self.gridHeight-1 do
+		for gx=0,self.gridWidth-1 do
 
 			-- sample cell diagonally and check map gridnav for blocked/traversable
 			local cellData = BUILDABLE
-			local sAdv = self.cellSize / SAMPLES_PER_CELL
-			for s=0,SAMPLES_PER_CELL do
-				local pos = Vector(
-					self.gridOriginX + gx * self.cellSize + sAdv * s,
-					self.gridOriginY + gy * self.cellSize + sAdv * s,
-					0)
-				if GridNav:IsBlocked(pos) or not GridNav:IsTraversable(pos) then
-					cellData = BLOCKED
-					break
+			local sAdv = self.cellSize / SAMPLES_PER_CELL2
+			for sx=1,SAMPLES_PER_CELL2 do
+				for sy=1,SAMPLES_PER_CELL2 do
+					local pos = Vector(
+						self.gridOriginX + gx * self.cellSize + sAdv * sx,
+						self.gridOriginY + gy * self.cellSize + sAdv * sy,
+						0)
+					if GridNav:IsBlocked(pos) or not GridNav:IsTraversable(pos) then
+						cellData = BLOCKED
+						break
+					end
 				end
 			end
 
@@ -46,10 +48,39 @@ function Grid:Init()
 		end
 	end
 
+	-- note: class is trigger_hero on a mesh
+	-- find block volumes
+	volumes = Entities:FindAllByName("volume_nobuild*") 
+	for _,u in pairs(volumes) do
+		print("volume found")
+		local bmin = u:GetBoundingMins()
+		local bmax = u:GetBoundingMaxs()
+		local origin = u:GetAbsOrigin()
+		bmin.x = bmin.x + origin.x
+		bmin.y = bmin.y + origin.y
+		bmax.x = bmax.x + origin.x
+		bmax.y = bmax.y + origin.y
+
+		--printf("start=[%.2f, %.2f] bmax=[%.2f, %.2f]",
+		--	bmin.x, bmin.y, bmax.x, bmax.y)
+
+		local startGx = intDiv(bmin.x - self.gridOriginX, self.cellSize)
+		local startGy = intDiv(bmin.y - self.gridOriginY, self.cellSize)
+		local endGx = intDiv(bmax.x - self.gridOriginX, self.cellSize)
+		local endGy = intDiv(bmax.y - self.gridOriginY, self.cellSize)
+
+		--printf("start=[%d, %d] end=[%d, %d]", startGx, startGy, endGx, endGy)
+		for gy=startGy,endGy do
+			for gx=startGx,endGx do
+				self.gridData[gy * self.gridWidth + gx] = BLOCKED
+			end
+		end
+	end
+
 	print("Grid initialized")
 end
 
-function Grid:DebugDrawAround(worldPos, squareRadius)
+function Grid:DebugDrawAround(worldPos, squareRadius, duration)
 	local gx = intDiv(worldPos.x - self.gridOriginX, self.cellSize)
 	local gy = intDiv(worldPos.y - self.gridOriginY, self.cellSize)
 
@@ -75,7 +106,24 @@ function Grid:DebugDrawAround(worldPos, squareRadius)
 				Vector(0, 0, 0),
 				Vector(self.cellSize, self.cellSize, 1),
 				color.r, color.g, color.b, color.a,
-				1.0)
+				duration)
 		end
 	end
+end
+
+function Grid:CanBuild(absBmin, absBmax)
+	local startGx = intDiv(absBmin.x - self.gridOriginX, self.cellSize)
+	local startGy = intDiv(absBmin.y - self.gridOriginY, self.cellSize)
+	local endGx = intDiv(absBmax.x - self.gridOriginX, self.cellSize)
+	local endGy = intDiv(absBmax.y - self.gridOriginY, self.cellSize)
+
+	for gy=startGy,endGy do
+		for gx=startGx,endGx do
+			if self.gridData[gy * self.gridWidth + gx] == BLOCKED then
+				return false
+			end
+		end
+	end
+
+	return true
 end
