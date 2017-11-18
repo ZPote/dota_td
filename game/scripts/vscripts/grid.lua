@@ -3,11 +3,14 @@
 require("utils")
 
 if Grid == nil then
+	--print("NEW GRID", _G)
 	Grid = class({})
+	Grid.initialized = false
 
 	-- gridData enum
-	BLOCKED = 0
-	BUILDABLE = 1
+	BUILDABLE = 0
+	BLOCKED = 1
+	BLOCKED_BUILDING = 2
 end
 
 function Grid:Init()
@@ -77,10 +80,15 @@ function Grid:Init()
 		end
 	end
 
+	self.initialized = true
 	print("Grid initialized")
 end
 
 function Grid:DebugDrawAround(worldPos, squareRadius, duration)
+	if not self.initialized then
+		return
+	end
+
 	local gx = intDiv(worldPos.x - self.gridOriginX, self.cellSize)
 	local gy = intDiv(worldPos.y - self.gridOriginY, self.cellSize)
 
@@ -93,6 +101,9 @@ function Grid:DebugDrawAround(worldPos, squareRadius, duration)
 			local color = {r = 0, g = 255, b = 0, a = 32}
 			if cellData == BLOCKED then
 				color = {r = 255, g = 0, b = 0, a = 32}
+			end
+			if cellData == BLOCKED_BUILDING then
+				color = {r = 0, g = 0, b = 255, a = 32}
 			end
 
 			local pos = Vector(
@@ -112,6 +123,12 @@ function Grid:DebugDrawAround(worldPos, squareRadius, duration)
 end
 
 function Grid:CanBuild(absBmin, absBmax)
+	-- NOTE: When hovering (not clicking to cast),
+	-- _G is different so Gird is not initialized
+	if not self.initialized then
+		return true
+	end
+
 	local startGx = intDiv(absBmin.x - self.gridOriginX, self.cellSize)
 	local startGy = intDiv(absBmin.y - self.gridOriginY, self.cellSize)
 	local endGx = intDiv(absBmax.x - self.gridOriginX, self.cellSize)
@@ -119,11 +136,28 @@ function Grid:CanBuild(absBmin, absBmax)
 
 	for gy=startGy,endGy do
 		for gx=startGx,endGx do
-			if self.gridData[gy * self.gridWidth + gx] == BLOCKED then
+			if self.gridData[gy * self.gridWidth + gx] ~= BUILDABLE then
 				return false
 			end
 		end
 	end
 
 	return true
+end
+
+function Grid:Build(absBmin, absBmax)
+	if not self.initialized then
+		return false
+	end
+
+	local startGx = intDiv(absBmin.x - self.gridOriginX, self.cellSize)
+	local startGy = intDiv(absBmin.y - self.gridOriginY, self.cellSize)
+	local endGx = intDiv(absBmax.x - self.gridOriginX, self.cellSize)
+	local endGy = intDiv(absBmax.y - self.gridOriginY, self.cellSize)
+
+	for gy=startGy,endGy do
+		for gx=startGx,endGx do
+			self.gridData[gy * self.gridWidth + gx] = BLOCKED_BUILDING
+		end
+	end
 end

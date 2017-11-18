@@ -19,7 +19,7 @@ function ability_build_tower1_lua:CastFilterResultLocation(pos)
 	}
 
 	if not Grid:CanBuild(bmin, bmax) then
-		Grid:DebugDrawAround(pos, 5, 5)
+		Grid:DebugDrawAround(pos, 5, 1.5)
 		return UF_FAIL_CUSTOM
 	end
 
@@ -27,13 +27,25 @@ function ability_build_tower1_lua:CastFilterResultLocation(pos)
 end
 
 function ability_build_tower1_lua:GetCustomCastErrorLocation(pos)
-	print("ability_build_tower1_lua:GetCustomCastErrorLocation()")
+	--print("ability_build_tower1_lua:GetCustomCastErrorLocation()")
 	return "#td_hud_error_location_blocked"
 end
 
 function ability_build_tower1_lua:OnSpellStart()
-	print("ability_build_tower1_lua:OnSpellStart()")
-	local cursorPos = self:GetCursorPosition()
-	CreateUnitByName("td_tower1", cursorPos, false, self:GetCaster(), nil,
-	 DOTA_TEAM_GOODGUYS)
+	--print("ability_build_tower1_lua:OnSpellStart()")
+	local pos = self:GetCursorPosition()
+
+	local bmin = {
+		x = pos.x - DEBUG_TOWER_SIZE/2,
+		y = pos.y - DEBUG_TOWER_SIZE/2
+	}
+	local bmax = {
+		x = pos.x + DEBUG_TOWER_SIZE/2,
+		y = pos.y + DEBUG_TOWER_SIZE/2
+	}
+
+	Grid:Build(bmin, bmax)
+
+	CreateUnitByName("td_tower1", pos, false, self:GetCaster(), nil,
+		DOTA_TEAM_GOODGUYS)
 end

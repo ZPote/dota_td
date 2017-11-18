@@ -6,7 +6,6 @@ require("grid")
 DEBUG_QUICK_START = true
 DEBUG_DRAW_GRID = false
 
-
 if ModTD == nil then
 	ModTD = class({})
 	ModTD.hasRunOnce = false
@@ -84,7 +83,9 @@ function ModTD:OnGameStart()
 		if p then
 			self.players[self.player_count] = p
 			self.player_count = self.player_count + 1
-			ClearInventory(p:GetAssignedHero())
+			local hero = p:GetAssignedHero()
+			hero:SetTeam(DOTA_TEAM_GOODGUYS)
+			ClearInventory(hero)
 		end
 	end
 
@@ -126,7 +127,7 @@ function ModTD:OnGameUpdate()
 		local hero = p1:GetAssignedHero()
 		if hero then
 			local curPos = GetGroundPosition(hero:GetCenter(), hero)
-			Grid:DebugDrawAround(curPos, 20, duration)
+			Grid:DebugDrawAround(curPos, 20, 1.0)
 		end
 	end
 end
