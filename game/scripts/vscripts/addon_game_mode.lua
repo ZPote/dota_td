@@ -9,6 +9,14 @@ DEBUG_DRAW_GRID = false
 if ModTD == nil then
 	ModTD = class({})
 	ModTD.hasRunOnce = false
+	GameMode = nil
+
+	GAMESTATE_BUILD_TIME = 0
+	GAMESTATE_WAVE_SPAWN = 1
+	GAMESTATE_WAVE_WAIT = 2
+
+	UPDATE_DELTA = 1.0 -- can't be less than 1.0?
+	DEF_BUILD_TIME = 10.0
 end
 
 function ModTD:ctor()
@@ -19,12 +27,47 @@ function ModTD:ctor()
 
 	self.builder_units = {}
 	self.builder_count = 0
+
+	self.monster_spawns = {}
+	self.monster_spawn_count = 0
+
+	self.the_ancient = nil
+	self.monsters = {}
+	self.monster_count = 0
+
+	-- NOTE: arrays begin at 1 in this language (unless specified otherwise)
+	-- TODO: specify otherwise....
+	self.wave_defs = {
+		-- WAVE 1
+		{
+			{"td_monster_001", 10},
+			{"td_monster_001", 20},
+			{"td_monster_001", 15},
+			step_count = 3
+		},
+		-- WAVE 2
+		{
+			{"td_monster_001", 100},
+			step_count = 1
+		},
+	}
+
+	self.wave_def_count = 2
+
+	self.wave_id = 1
+	self.wave_step_id = 1
+	self.wave_monster_id = 0
+
+	self.build_time = DEF_BUILD_TIME -- seconds
+	self.state = GAMESTATE_BUILD_TIME
 end
 
 function ModTD:InitGameMode()
 	print("Template addon is loaded.")
 
 	GameRules:SetPreGameTime(0.0)
+	GameMode = GameRules:GetGameModeEntity()
+	GameMode:SetDaynightCycleDisabled(true)
 
 	if DEBUG_QUICK_START then
 		GameRules:SetCustomGameSetupTimeout(0.0)
@@ -32,12 +75,10 @@ function ModTD:InitGameMode()
 		GameRules:SetCustomGameSetupAutoLaunchDelay(0.0)
 		GameRules:SetHeroSelectionTime(0.0)
 
-		local gameMode = GameRules:GetGameModeEntity()
-		gameMode:SetCustomGameForceHero("dark_willow")
-		--gameMode:ClientLoadGridNav() does not work
+		GameMode:SetCustomGameForceHero("dark_willow")
 	end
 
-	GameRules:GetGameModeEntity():SetThink("OnThink", self, "GlobalThink", 1.0)
+	GameRules:GetGameModeEntity():SetThink("OnThink", self, "GlobalThink", UPDATE_DELTA)
 	ListenToGameEvent('player_connect_full', Dynamic_Wrap(ModTD, 'OnPlayerConnectFull')
 		, self)
 
@@ -83,9 +124,8 @@ function ModTD:OnGameStart()
 		if p then
 			self.players[self.player_count] = p
 			self.player_count = self.player_count + 1
-			local hero = p:GetAssignedHero()
-			hero:SetTeam(DOTA_TEAM_GOODGUYS)
-			ClearInventory(hero)
+			p:SetTeam(DOTA_TEAM_GOODGUYS)
+			ClearInventory(p:GetAssignedHero())
 		end
 	end
 
@@ -115,6 +155,21 @@ function ModTD:OnGameStart()
 		bid = bid + 1
 	end
 
+	-- find spawns
+	units = Entities:FindAllByName("monster_spawn_*")
+	for _,u in pairs(units) do
+		self.monster_spawns[self.monster_spawn_count] = u
+		self.monster_spawn_count = self.monster_spawn_count + 1
+		printf("monster_spawn%d", self.monster_spawn_count-1)
+		deep_print(u)
+	end
+
+	units = Entities:FindAllByName("frone")
+	for _,u in pairs(units) do
+		self.the_ancient = u
+		print("the_ancient", self.the_ancient:GetOrigin())
+	end
+
 	self.init_pregame = true
 end
 
@@ -127,9 +182,80 @@ function ModTD:OnGameUpdate()
 		local hero = p1:GetAssignedHero()
 		if hero then
 			local curPos = GetGroundPosition(hero:GetCenter(), hero)
-			Grid:DebugDrawAround(curPos, 20, 1.0)
+			Grid:DebugDrawAround(curPos, 20, UPDATE_DELTA)
 		end
 	end
+
+	self:HandleAliveMonsters()
+
+	if self.state == GAMESTATE_BUILD_TIME then
+		self.build_time = self.build_time - UPDATE_DELTA
+		if self.build_time <= 0.0 then
+			self.state = GAMESTATE_WAVE_SPAWN
+		end
+
+	elseif self.state == GAMESTATE_WAVE_SPAWN then
+		GameRules:BeginTemporaryNight(UPDATE_DELTA * 3.0)
+		self:SpawnWaveMonsters()
+
+	elseif self.state == GAMESTATE_WAVE_WAIT then
+		if self.monster_count <= 0 then
+			self.wave_id = self.wave_id + 1
+			self.build_time = DEF_BUILD_TIME
+			self.state = GAMESTATE_BUILD_TIME
+		end
+		if self.wave_id > self.wave_def_count then
+			GameRules:SetGameWinner(DOTA_TEAM_GOODGUYS)
+		end
+	end
+end
+
+function ModTD:HandleAliveMonsters()
+	-- clear dead monsters, and attack click the the_ancient
+	for i=0,self.monster_count-1 do
+		while self.monsters[i] == nil or not self.monsters[i]:IsAlive() do
+			self.monsters[i] = self.monsters[self.monster_count-1]
+			self.monster_count = self.monster_count - 1
+			if self.monster_count <= 0 then
+				return
+			end
+		end
+
+		if self.monster_count > 0 then
+			self.monsters[i]:MoveToPositionAggressive(self.the_ancient:GetOrigin())
+		end
+	end
+end
+
+function ModTD:SpawnWaveMonsters()
+	for s=0,self.monster_spawn_count-1 do
+		printf("wave=%d step=%d monster_id=%d", self.wave_id, self.wave_step_id,
+			self.wave_monster_id)
+
+		local spawnPos = self.monster_spawns[s]:GetOrigin()
+		local monsterName = self.wave_defs[self.wave_id][self.wave_step_id][1]
+		local monster = CreateUnitByName(monsterName, spawnPos, true,
+							nil, nil, DOTA_TEAM_BADGUYS)
+		self.monsters[self.monster_count] = monster
+		self.monster_count = self.monster_count + 1
+		self.wave_monster_id = self.wave_monster_id + 1
+
+		if self.wave_monster_id >= self.wave_defs[self.wave_id][self.wave_step_id][2] then
+			self.wave_step_id = self.wave_step_id + 1
+			self.wave_monster_id = 0
+		end
+		if self.wave_step_id > self.wave_defs[self.wave_id].step_count then
+			self:EndWave()
+			print("End wave")
+			return
+		end
+	end
+end
+
+function ModTD:EndWave()
+	self.state = GAMESTATE_WAVE_WAIT
+	self.wave_step_id = 1
+	self.wave_monster_id = 0
 end
 
 function Precache( context )

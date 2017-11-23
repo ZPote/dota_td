@@ -6,8 +6,8 @@ require("grid")
 DEBUG_TOWER_SIZE = 128
 
 function ability_build_tower1_lua:CastFilterResultLocation(pos)
-	printf("ability_build_tower1_lua:CastFilterResultLocation(pos=(%.2f, %.2f))",
-		pos.x, pos.y)
+	--printf("ability_build_tower1_lua:CastFilterResultLocation(pos=(%.2f, %.2f))",
+	--	pos.x, pos.y)
 
 	local bmin = {
 		x = pos.x - DEBUG_TOWER_SIZE/2,
