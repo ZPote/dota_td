@@ -19,6 +19,30 @@ if ModTD == nil then
 	DEF_BUILD_TIME = 10.0
 end
 
+function Waves_NewWave(wt)
+	if wt.count == nil then
+		wt.count = 0
+		wt.step_count = {}
+	end
+	if wt.w == nil then
+		wt.w = {}
+	end
+	
+	wt.w[wt.count] = {}
+	wt.count = wt.count + 1
+end
+
+function Waves_NewStep(wt, monsterName, monsterCount)
+	local waveId = wt.count-1
+	if wt.step_count[waveId] == nil then
+		wt.step_count[waveId] = 0
+	end
+
+	local steps = wt.step_count[waveId]
+	wt.w[waveId][steps] = { name=monsterName, count=monsterCount }
+	wt.step_count[waveId] = steps + 1
+end
+
 function ModTD:ctor()
 	self.init_pregame = false
 
@@ -35,27 +59,19 @@ function ModTD:ctor()
 	self.monsters = {}
 	self.monster_count = 0
 
-	-- NOTE: arrays begin at 1 in this language (unless specified otherwise)
-	-- TODO: specify otherwise....
-	self.wave_defs = {
-		-- WAVE 1
-		{
-			{"td_monster_001", 10},
-			{"td_monster_001", 20},
-			{"td_monster_001", 15},
-			step_count = 3
-		},
-		-- WAVE 2
-		{
-			{"td_monster_001", 100},
-			step_count = 1
-		},
-	}
+	self.waves = {}
+	Waves_NewWave(self.waves)
+		Waves_NewStep(self.waves, "td_monster_001", 10)
+		Waves_NewStep(self.waves, "td_monster_001", 20)
+		Waves_NewStep(self.waves, "td_monster_001", 15)
+	Waves_NewWave(self.waves)
+		Waves_NewStep(self.waves, "td_monster_001", 100)
+		Waves_NewStep(self.waves, "td_monster_001", 1)
+	----------------------------
+	deep_print(self.waves)
 
-	self.wave_def_count = 2
-
-	self.wave_id = 1
-	self.wave_step_id = 1
+	self.wave_id = 0
+	self.wave_step_id = 0
 	self.wave_monster_id = 0
 
 	self.build_time = DEF_BUILD_TIME -- seconds
@@ -199,12 +215,13 @@ function ModTD:OnGameUpdate()
 		self:SpawnWaveMonsters()
 
 	elseif self.state == GAMESTATE_WAVE_WAIT then
+		GameRules:BeginTemporaryNight(UPDATE_DELTA * 3.0)
 		if self.monster_count <= 0 then
 			self.wave_id = self.wave_id + 1
 			self.build_time = DEF_BUILD_TIME
 			self.state = GAMESTATE_BUILD_TIME
 		end
-		if self.wave_id > self.wave_def_count then
+		if self.wave_id >= self.waves.count then
 			GameRules:SetGameWinner(DOTA_TEAM_GOODGUYS)
 		end
 	end
@@ -233,18 +250,18 @@ function ModTD:SpawnWaveMonsters()
 			self.wave_monster_id)
 
 		local spawnPos = self.monster_spawns[s]:GetOrigin()
-		local monsterName = self.wave_defs[self.wave_id][self.wave_step_id][1]
+		local monsterName = self.waves.w[self.wave_id][self.wave_step_id].name
 		local monster = CreateUnitByName(monsterName, spawnPos, true,
 							nil, nil, DOTA_TEAM_BADGUYS)
 		self.monsters[self.monster_count] = monster
 		self.monster_count = self.monster_count + 1
 		self.wave_monster_id = self.wave_monster_id + 1
 
-		if self.wave_monster_id >= self.wave_defs[self.wave_id][self.wave_step_id][2] then
+		if self.wave_monster_id >= self.waves.w[self.wave_id][self.wave_step_id].count then
 			self.wave_step_id = self.wave_step_id + 1
 			self.wave_monster_id = 0
 		end
-		if self.wave_step_id > self.wave_defs[self.wave_id].step_count then
+		if self.wave_step_id >= self.waves.step_count[self.wave_id] then
 			self:EndWave()
 			print("End wave")
 			return
@@ -254,7 +271,7 @@ end
 
 function ModTD:EndWave()
 	self.state = GAMESTATE_WAVE_WAIT
-	self.wave_step_id = 1
+	self.wave_step_id = 0
 	self.wave_monster_id = 0
 end
 
