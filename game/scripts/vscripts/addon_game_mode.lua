@@ -89,6 +89,7 @@ function ModTD:InitGameMode()
 	GameRules:SetPreGameTime(0.0)
 	GameMode = GameRules:GetGameModeEntity()
 	GameMode:SetDaynightCycleDisabled(true)
+	GameMode:SetFogOfWarDisabled(true)
 
 	if DEBUG_QUICK_START then
 		GameRules:SetCustomGameSetupTimeout(0.0)
@@ -241,8 +242,10 @@ end
 
 function ModTD:HandleAliveMonsters()
 	-- clear dead monsters, and attack click the the_ancient
-	for i=0,self.monster_count-1 do
-		while self.monsters[i] == nil or not self.monsters[i]:IsAlive() do
+	-- TODO: this is bugged, sometimes 1 or 2 monsters are alive and monster_count is 0
+	local i = 0
+	while i < self.monster_count do
+		while not IsValidEntity(self.monsters[i]) or not self.monsters[i]:IsAlive() do
 			self.monsters[i] = self.monsters[self.monster_count-1]
 			self.monster_count = self.monster_count - 1
 			if self.monster_count <= 0 then
@@ -254,6 +257,8 @@ function ModTD:HandleAliveMonsters()
 		if self.monster_count > 0 then
 			self.monsters[i]:MoveToPositionAggressive(self.the_ancient:GetOrigin())
 		end
+
+		i = i + 1
 	end
 end
 
@@ -305,6 +310,9 @@ function Precache( context )
 	if DEBUG_QUICK_START then
 		PrecacheUnitByNameSync("npc_dota_hero_dark_willow", context)
 	end
+
+	PrecacheUnitByNameSync("td_tower1", context)
+	PrecacheUnitByNameSync("td_tower2", context)
 end
 
 -- Create the game mode when we activate
