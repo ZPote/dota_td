@@ -35,3 +35,7 @@ end
 function intDiv(float1, int2)
 	return math.floor(float1 / int2)
 end
+
+function Rand(lower, upper)
+	return math.random() * (upper - lower) + lower
+end

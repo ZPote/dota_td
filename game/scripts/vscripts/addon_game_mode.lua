@@ -5,6 +5,7 @@ require("grid")
 
 DEBUG_QUICK_START = true
 DEBUG_DRAW_GRID = false
+DEBUG_PRINT_WAVE = false
 
 if ModTD == nil then
 	ModTD = class({})
@@ -17,6 +18,8 @@ if ModTD == nil then
 
 	UPDATE_DELTA = 1.0 -- can't be less than 1.0?
 	DEF_BUILD_TIME = 10.0
+
+	math.randomseed(1234567)
 end
 
 function Waves_NewWave(wt)
@@ -68,7 +71,9 @@ function ModTD:ctor()
 		Waves_NewStep(self.waves, "td_monster_001", 100)
 		Waves_NewStep(self.waves, "td_monster_001", 1)
 	----------------------------
-	deep_print(self.waves)
+	if DEBUG_PRINT_WAVE then
+		deep_print(self.waves)
+	end
 
 	self.wave_id = 0
 	self.wave_step_id = 0
@@ -190,6 +195,9 @@ function ModTD:OnGameStart()
 end
 
 function ModTD:OnGameUpdate()
+	if GameRules:IsGamePaused() then
+		return
+	end
 	--local firstAbility = hero:GetAbilityByIndex(0)
 	--local curPos = firstAbility:GetCursorPosition()
 
@@ -222,7 +230,11 @@ function ModTD:OnGameUpdate()
 			self.state = GAMESTATE_BUILD_TIME
 		end
 		if self.wave_id >= self.waves.count then
-			GameRules:SetGameWinner(DOTA_TEAM_GOODGUYS)
+			if not DEBUG_QUICK_START then
+				GameRules:SetGameWinner(DOTA_TEAM_GOODGUYS)
+			else
+				PauseGame(true)
+			end
 		end
 	end
 end
@@ -234,6 +246,7 @@ function ModTD:HandleAliveMonsters()
 			self.monsters[i] = self.monsters[self.monster_count-1]
 			self.monster_count = self.monster_count - 1
 			if self.monster_count <= 0 then
+				self.monster_count = 0
 				return
 			end
 		end
@@ -246,13 +259,18 @@ end
 
 function ModTD:SpawnWaveMonsters()
 	for s=0,self.monster_spawn_count-1 do
-		printf("wave=%d step=%d monster_id=%d", self.wave_id, self.wave_step_id,
-			self.wave_monster_id)
+		if DEBUG_PRINT_WAVE then
+			printf("wave=%d step=%d monster_id=%d", self.wave_id, self.wave_step_id,
+				self.wave_monster_id)
+		end
 
 		local spawnPos = self.monster_spawns[s]:GetOrigin()
 		local monsterName = self.waves.w[self.wave_id][self.wave_step_id].name
 		local monster = CreateUnitByName(monsterName, spawnPos, true,
 							nil, nil, DOTA_TEAM_BADGUYS)
+		local newScale = monster:GetModelScale() * Rand(0.9, 1.1) -- scale variation
+		monster:SetModelScale(newScale)
+
 		self.monsters[self.monster_count] = monster
 		self.monster_count = self.monster_count + 1
 		self.wave_monster_id = self.wave_monster_id + 1
